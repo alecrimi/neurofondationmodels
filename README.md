@@ -1,6 +1,4 @@
-# 🧠 Brain Time Series Forecasting with Foundation Models
-
-🔗 **Repository:** https://github.com/your-username/brain-ts-foundation-models
+# 🧠 Brain Time Series Forecasting with Foundation Models 
 
 ---
 
@@ -51,6 +49,8 @@ Below is a curated list of currently available TSFMs with links to their reposit
 ## 🧠 Dataset: Alzheimer EEG (OpenNeuro)
 
 - 👉 https://openneuro.org/datasets/ds004504/versions/1.0.8  
+There is a raw version and a preprocessed version inside "derivatives"
+
 
 ### Description
 - EEG recordings from Alzheimer’s patients and healthy controls  
