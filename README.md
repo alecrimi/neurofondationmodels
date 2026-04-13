@@ -23,13 +23,15 @@ Below is a curated list of currently available TSFMs with links to their reposit
   https://github.com/amazon-science/chronos-forecasting  
 
 - **Moirai (Salesforce)**  
-  https://github.com/SalesforceAIResearch/moirai  
+  https://github.com/SalesforceAIResearch/uni2ts
 
 - **Lag-Llama (ServiceNow)**  
   https://github.com/time-series-foundation-models/lag-llama  
 
 - **TimeGPT (Nixtla)**  
   https://github.com/Nixtla/nixtla  
+
+- **NeuroGPT**  
 
 ---
 
