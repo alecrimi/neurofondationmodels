@@ -27,7 +27,7 @@ Following pairs were used for forecasting specific electrode signals.
 * P4 + Fp2 -> Fp2
 
 #### Windows over target and covariate signals
-![alt text](Figures\evaluation_covariates_visualization.png)
+![alt text](Figures/evaluation_covariates_visualization.png)
 
 
 ## Used models, specifications:
