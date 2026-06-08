@@ -142,7 +142,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | Fp1 -> P3 |               10 |       8.81 |     94.55 |
 | Fp2 -> P4 |               10 |       9.01 |     94.32 |
 
-### Table 4. Chronos
+### Table 5. Chronos
 | Pair      |   Optimal_Lag_ms |   Median_F |   Sig_Pct |
 |:----------|-----------------:|-----------:|----------:|
 | Fp2 -> P4 |               10 |      39.18 |    100    |
@@ -150,7 +150,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | P4 -> Fp2 |               10 |      33.58 |    100    |
 | Fp1 -> P3 |               40 |      14    |     98.86 |
 
-### Table 5. Chronos2
+### Table 6. Chronos2
 | Pair      |   Optimal_Lag_ms |   Median_F |   Sig_Pct |
 |:----------|-----------------:|-----------:|----------:|
 | Fp1 -> P3 |               10 |      27.43 |    100    |
@@ -158,7 +158,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | P4 -> Fp2 |               10 |      25.59 |    100    |
 | Fp2 -> P4 |               10 |      31.17 |     98.86 |
 
-### Table 6. TimesFM
+### Table 7. TimesFM
 | Pair      |   Optimal_Lag_ms |   Median_F |   Sig_Pct |
 |:----------|-----------------:|-----------:|----------:|
 | P4 -> Fp2 |               20 |      15.3  |    100    |
@@ -168,7 +168,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 
 ## Consistency of causality significance for different patient goups using optimal lag values from Table 4
 
-### Table 7. Granger
+### Table 8. Granger
 | Pair      |      A |      C |     F |
 |:----------|-------:|-------:|------:|
 | Fp1 -> P3 |  96.67 |  94.48 | 91.3  |
@@ -176,7 +176,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | P3 -> Fp1 | 100    |  98.62 | 98.26 |
 | P4 -> Fp2 |  99.44 | 100    | 98.26 |
 
-### Table 8. Chronos
+### Table 9. Chronos
 | Pair      |      A |   C |   F |
 |:----------|-------:|----:|----:|
 | Fp1 -> P3 |  97.22 | 100 | 100 |
@@ -184,7 +184,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | P3 -> Fp1 | 100    | 100 | 100 |
 | P4 -> Fp2 | 100    | 100 | 100 |
 
-### Table 9. Chronos2
+### Table 10. Chronos2
 | Pair      |      A |   C |   F |
 |:----------|-------:|----:|----:|
 | Fp1 -> P3 | 100    | 100 | 100 |
@@ -192,7 +192,7 @@ The following plot illustrates how the consistency of the causal signal changes 
 | P3 -> Fp1 | 100    | 100 | 100 |
 | P4 -> Fp2 | 100    | 100 | 100 |
 
-### Table 10. TimesFM
+### Table 11. TimesFM
 | Pair      |      A |      C |   F |
 |:----------|-------:|-------:|----:|
 | Fp1 -> P3 |  97.22 | 100    | 100 |
