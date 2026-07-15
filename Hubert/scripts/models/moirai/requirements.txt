@@ -1,0 +1,18 @@
+# Moirai isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+#
+# uni2ts is installed with --no-deps (its numpy~=1.26 pin has no Python 3.13 wheel).
+# All uni2ts runtime deps are listed here with Python 3.13 compatible versions.
+gluonts>=0.15.0
+numpy<2.2
+pandas>=2.0,<3.0
+einops
+hydra-core
+omegaconf
+lightning
+# uni2ts runtime deps not covered above:
+jaxtyping          # uni2ts distribution/_base.py → jaxtyping.PyTree → needs jax
+jax[cpu]           # required by jaxtyping.PyTree (type annotation only, no GPU needed)
+safetensors        # MoiraiModule.from_pretrained() weight loading
+huggingface_hub    # MoiraiModule.from_pretrained() hub download
+python-dotenv      # uni2ts config system

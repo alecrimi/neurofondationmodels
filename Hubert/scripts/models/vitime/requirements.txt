@@ -1,0 +1,12 @@
+# ViTime isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+# ViTime source: ref/vitime/ repo (added to sys.path in runner.py)
+# Checkpoint: new/models/vitime/ViTime_Model.pth (download from Google Drive)
+timm>=1.0.7
+matplotlib
+opencv-python
+numpy
+pandas
+Pillow
+scikit-learn
+threadpoolctl

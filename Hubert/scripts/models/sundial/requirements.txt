@@ -1,0 +1,11 @@
+# Sundial isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+# Creator README pins transformers==4.40.1, but that version's tokenizers
+# does not build on Python 3.13 (pyo3 0.21.2 max = Python 3.12).
+# Using >=4.46.0 which ships Python 3.13 wheels; Sundial's trust_remote_code
+# model card on HuggingFace is compatible with newer transformers.
+transformers>=4.46.0,<5.0
+huggingface_hub>=0.20.0
+numpy
+pandas
+accelerate

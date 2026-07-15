@@ -1,0 +1,5 @@
+# Chronos isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+chronos-forecasting>=2.0.0
+numpy
+pandas

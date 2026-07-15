@@ -1,0 +1,12 @@
+# Lag-Llama isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+# Lag-Llama source: ref/lag-llama/ (added to sys.path in runner.py)
+# 'lightning' provides both lightning.pytorch (used by gluonts>=0.15)
+# and pytorch_lightning (used by lag-llama repo) as backward-compat alias
+lightning
+gluonts>=0.15.0
+scipy
+numpy<2.2
+pandas>=2.0,<3.0
+huggingface_hub
+einops

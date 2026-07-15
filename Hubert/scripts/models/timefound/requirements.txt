@@ -1,0 +1,5 @@
+# TimeFound isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+# Pure PyTorch — no extra packages needed
+numpy
+pandas

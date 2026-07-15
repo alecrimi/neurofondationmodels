@@ -1,0 +1,5 @@
+# TimesFM isolated venv
+# torch is installed separately by run_isolated.py (CUDA build)
+timesfm>=2.0.0
+numpy
+pandas
