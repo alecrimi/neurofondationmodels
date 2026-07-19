@@ -57,8 +57,8 @@ Following pairs were used for forecasting specific electrode signals.
 | Chronos2_cov |        2.19973e-10 |
 | Chronos2     |        4.73529e-10 |
 | Chronos      |        5.16301e-10 |
-| Sundial      |        1.05395e-09 |
-| Vitime       |        1.05395e-09 |
+| Sundial      |        - |
+| Vitime       |        - |
 | Lag-Llama    |        5.30604e-09 |
 | Moirai       |        1.50025e-08 |
 | Timesfm      |        1.6746e-08  |
@@ -74,8 +74,8 @@ Following pairs were used for forecasting specific electrode signals.
 | Chronos2_cov |     2.26811e-10 |   2.02074e-10 | 2.31838e-10 | 2.20241e-10 |
 | Chronos2     |     4.73699e-10 |   4.52225e-10 | 5.00123e-10 | 4.75349e-10 |
 | Chronos      |     5.22585e-10 |   4.7408e-10  | 5.59699e-10 | 5.18788e-10 |
-| Sundial      |     1.14462e-09 |   9.98709e-10 | 9.81698e-10 | 1.04167e-09 |
-| Vitime       |     1.14462e-09 |   9.98709e-10 | 9.81698e-10 | 1.04167e-09 |
+| Sundial      |     - |   - | - | - |
+| Vitime       |     - |   - | - | - |
 | Lag-Llama    |     5.36977e-09 |   5.44587e-09 | 5.02996e-09 | 5.28187e-09 |
 | Moirai       |     1.8865e-08  |   7.62569e-09 | 1.82581e-08 | 1.49163e-08 |
 | Timesfm      |     5.39555e-10 |   4.53336e-10 | 6.26554e-08 | 2.12161e-08 |
@@ -90,8 +90,8 @@ Following pairs were used for forecasting specific electrode signals.
 | Chronos2_cov | 2.24054e-10 | 2.26409e-10 | 2.21468e-10 | 2.0796e-10  | 2.19973e-10 |
 | Chronos2     | 4.89602e-10 | 4.87868e-10 | 4.64271e-10 | 4.52374e-10 | 4.73529e-10 |
 | Chronos      | 5.44368e-10 | 5.5126e-10  | 4.8019e-10  | 4.89385e-10 | 5.16301e-10 |
-| Sundial      | 1.11935e-09 | 1.20673e-09 | 9.55709e-10 | 9.3402e-10  | 1.05395e-09 |
-| Vitime       | 1.11935e-09 | 1.20673e-09 | 9.55709e-10 | 9.3402e-10  | 1.05395e-09 |
+| Sundial      | - | - | - | -  | - |
+| Vitime       | - | - | - | -  | - |
 | Lag-Llama    | 5.3539e-09  | 5.44696e-09 | 5.27308e-09 | 5.15021e-09 | 5.30604e-09 |
 | Moirai       | 1.43614e-08 | 1.21267e-08 | 1.77347e-08 | 1.57873e-08 | 1.50025e-08 |
 | Timesfm      | 5.01458e-10 | 5.16905e-10 | 5.11325e-10 | 6.54542e-08 | 1.6746e-08  |
