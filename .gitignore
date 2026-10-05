@@ -1,4 +1,7 @@
-/Michal/.venv/
-/Michal/articles_and_materials/
-/Michal/datasets/
-/Michal/temporary_scripts/
+*.pyc
+venv/
+venv-cpu312/
+__pycache__/
+*.pth
+datasets/
+Temp/
