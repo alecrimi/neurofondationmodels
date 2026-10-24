@@ -5,7 +5,7 @@ Each model is run separately.  Univariate forecasts of every target channel are
 computed once per (model, subject, channel) and cached, so changing only the lag
 list or the subject subset does not require new forecasts.
 
-Usage (from the project root, i.e. the folder that contains benchmark/)
+Usage (from the project root, i.e. the folder that contains benchmark/ (mag))
 -----
   # notebook defaults: lags [5,10,20,30,40,50] samples (10–100 ms), 4 scalp pairs
   python benchmark/run_residual_causality.py --models Chronos --device cpu
@@ -141,17 +141,35 @@ class SignalSource:
 
     def load(self, sid: str, channels: set[str]) -> dict[str, np.ndarray]:
         if self.pipeline == "baseline":
-            from scipy.stats import zscore
             raw = self.loader.load_subject(sid)
+            offset = rc.OFFSET_SAMPLES
             out = {}
+
             for ch in channels:
                 if ch not in raw.ch_names:
                     continue
-                sig = raw.get_data(picks=[ch])[0]           # Volts, float64
+
+                sig = raw.get_data(picks=[ch])[0]  # Volts, float64
+
                 if self.scaling == "zscore":
-                    sig = zscore(sig)                        # as BaselinePipeline
-                out[ch] = np.asarray(sig, dtype=np.float32)  # as notebooks (float32)
+                    reference = sig[offset:]
+
+                    if reference.size < 2:
+                        raise ValueError(
+                            f"{sid}/{ch}: signal too short after subtracting offset of {offset} samples to calculate std."
+                        )
+
+                    mean = float(np.mean(reference))
+                    std = float(np.std(reference, ddof=0))
+
+                    if not np.isfinite(std) or std <= 0:
+                        raise ValueError(
+                            f"{sid}/{ch}: incorrect standard deviation: {std}."
+                        )
+                    sig = (sig - mean) / std
+                out[ch] = np.asarray(sig, dtype=np.float32)
             return out
+
         if self.pipeline == "loreta":
             if self._loreta is None:
                 from benchmark.pipelines.loreta import LoretaPipeline
@@ -299,13 +317,13 @@ def forecast_targets(model: str, subjects: dict, targets_needed: dict, device: s
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(description="Foundation-model residual causality (Kaggle-notebook maths, Hubert's model runners)")
+    p = argparse.ArgumentParser(description="Foundation-model residual causality")
     p.add_argument("--models", nargs="+", required=True,
                    help=f"One or more of {bench.ALL_MODELS}; each is run separately.")
     p.add_argument("--lags", default=str(rc.DEFAULT_LAGS_SAMPLES),
                    help='Lag list in square brackets, e.g. "[5,10,20,30,40,50]" (default: notebook lags).')
     p.add_argument("--lag-unit", choices=["samples", "ms"], default="samples",
-                   help="Unit of --lags (default: samples, as in the notebooks; 1 sample = 2 ms).")
+                   help="Unit of --lags (default: samples, 1 sample = 2 ms).")
     sel = p.add_mutually_exclusive_group()
     sel.add_argument("--group", default="all",
                      help="all | ad | ftd (alias fd) | control  (default: all)")
@@ -318,7 +336,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pipeline", choices=["baseline", "loreta"], default="baseline",
                    help="Signal space (default: baseline scalp EEG). loreta requires --pairs with parcel names.")
     p.add_argument("--scaling", choices=["raw", "zscore"], default=None,
-                   help="baseline only: raw volts as in the notebooks (default) or full-signal z-score as in run.py.")
+                   help="baseline only: raw volts or z-score using mean/std computed after excluding the first 3 seconds.")
     p.add_argument("--alpha", type=float, default=0.05)
     p.add_argument("--device", default=None, help="cuda or cpu (auto-detected if omitted)")
     p.add_argument("--dataset", default=str(bench._DATASET), help="Path to ds004504")
@@ -337,7 +355,7 @@ def main(argv=None):
     if args.pipeline == "loreta" and args.pairs is None:
         raise SystemExit("--pipeline loreta needs explicit --pairs with parcel names, "
                          "e.g. \"src_precuneus_lh->src_superiorfrontal_lh\".")
-    scaling = args.scaling or ("raw" if args.pipeline == "baseline" else "zscore")
+    scaling = args.scaling or "zscore"
     if args.pipeline == "loreta" and scaling != "zscore":
         raise SystemExit("The loreta pipeline only provides z-scored parcel signals (--scaling zscore).")
     group_code = None if args.subjects else rc.resolve_group(args.group)
@@ -395,7 +413,6 @@ def main(argv=None):
         subj_rows.append({"subject_id": sid, "group": grp, "status": status,
                           "data_source": source.data_source(sid), "note": note})
         print(f"  [{i + 1}/{len(sel)}] {sid} ({grp}) — {status}{(': ' + note) if note else ''}")
-    pd.DataFrame(subj_rows).to_csv(out_dir / "subjects.csv", index=False)
 
     targets_needed: dict = {}
     for sid, info in subjects.items():
@@ -408,10 +425,14 @@ def main(argv=None):
         "pipeline": args.pipeline, "scaling": scaling, "dataset": str(Path(args.dataset).resolve()),
         "context_len": rc.CONTEXT_LEN, "horizon_len": rc.HORIZON_LEN,
         "num_windows": rc.NUM_WINDOWS, "offset_samples": rc.OFFSET_SAMPLES,
+        "zscore_reference": (
+            "post_offset"
+            if args.pipeline == "baseline" and scaling == "zscore"
+            else None
+        ),
     }
 
     # ── per model: forecasts -> residual F-tests ──────────────────────────────
-    all_rows = []
     model_info = {}
     for model in models:
         print(f"\n{'=' * 60}\n  Residual causality: {model}\n{'=' * 60}")
@@ -445,20 +466,12 @@ def main(argv=None):
         csv_path = out_dir / f"{_model_slug(model)}_residual_causality_results.csv"
         df.to_csv(csv_path, index=False)
         print(f"[{model}] {len(df)} tests -> {csv_path}")
-        all_rows.append(df)
 
         folder = bench._FOLDER[model]
-        (out_dir / f"environment_{_model_slug(model)}.txt").write_text(
-            _pip_freeze(bench._venv_python(folder)), encoding="utf-8")
         model_info[model] = {
             "status": "ok", "n_tests": int(len(df)),
             "runner_sha1": _sha1_file(bench._MODELS / folder / "runner.py"),
         }
-
-    if all_rows:
-        res = pd.concat(all_rows, ignore_index=True)
-        rc.summarize_by_lag(res, args.alpha).to_csv(out_dir / "summary_by_lag.csv", index=False)
-        rc.optimal_lag_table(res, args.alpha).to_csv(out_dir / "optimal_lag.csv", index=False)
 
     config = {
         "created": _dt.datetime.now().isoformat(timespec="seconds"),
