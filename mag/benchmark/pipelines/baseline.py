@@ -10,7 +10,7 @@ Channels:       Fp1, Fp2, P3, P4
 """
 import numpy as np
 from scipy.stats import zscore
-from . import BasePipeline, CHANNELS
+from . import BasePipeline, CHANNELS, FS
 
 
 class BaselinePipeline(BasePipeline):
@@ -30,12 +30,26 @@ class BaselinePipeline(BasePipeline):
                 continue
 
             raw_sig = raw_mne.get_data(picks=[ch])[0]  # shape (n_samples,), in Volts
-            raw_std = float(np.std(raw_sig))
+            
+            offset = int(3 * FS)
+            reference = raw_sig[offset:]
 
-            # Z-score normalisation only (derivatives are already bandpass-filtered)
-            normed = zscore(raw_sig).astype(np.float32)
+            if reference.size < 2:
+                raise ValueError(
+                    f"{subject_id}/{ch}: signal too short after subtracting offset of {offset} samples to calculate std."
+                )
 
-            windows = self._extract_windows(normed)
+            mean = float(np.mean(reference))
+            raw_std = float(np.std(reference, ddof=0))
+
+            if not np.isfinite(raw_std) or raw_std <= 0:
+                raise ValueError(
+                    f"{subject_id}/{ch}: incorrect standard deviation: {raw_std}."
+                )
+
+            normed = ((raw_sig - mean) / raw_std).astype(np.float32)
+
+            windows = self._extract_windows(normed, subject_id=subject_id)
             if not windows:
                 continue
 

@@ -60,7 +60,7 @@ import hashlib
 import numpy as np
 from scipy.stats import zscore
 
-from . import BasePipeline, CHANNELS, CONTEXT_LEN, HORIZON_LEN, NUM_WINDOWS
+from . import BasePipeline, CHANNELS, CONTEXT_LEN, HORIZON_LEN, NUM_WINDOWS, FS
 
 # ── Parcels of interest (Desikan-Killiany atlas, both hemispheres) ────────────
 PARCELS = [
@@ -314,11 +314,26 @@ class LoretaPipeline(BasePipeline):
                           f"({label_name}, {subject_id}): {e}")
                     continue
 
-                raw_std = float(np.std(sig))
-                if raw_std < 1e-15:
-                    continue  # degenerate / all-zero source — skip
+                offset = int(3 * FS)
+                reference = sig[offset:]
 
-                normed = zscore(sig).astype(np.float32)
+                if reference.size < 2:
+                    raise ValueError(
+                        f"{subject_id}/{label_name}: signal too short after subtracting offset of {offset} samples to calculate std."
+                    )
+
+                mean = float(np.mean(reference))
+                raw_std = float(np.std(reference, ddof=0))
+
+                if not np.isfinite(raw_std) or raw_std <= 0:
+                    raise ValueError(
+                        f"{subject_id}/{label_name}: incorrect standard deviation: {raw_std}."
+                    )
+
+                if raw_std < 1e-15:
+                    continue
+
+                normed = ((sig - mean) / raw_std).astype(np.float32)
                 result[f"src_{parcel}_{hemi}"] = (normed, raw_std)
 
         return result
@@ -335,7 +350,7 @@ class LoretaPipeline(BasePipeline):
 
         result = {}
         for key, (normed, raw_std) in parcels.items():
-            windows = self._extract_windows(normed)
+            windows = self._extract_windows(normed, subject_id=subject_id)
             if not windows:
                 continue
             result[key] = {"windows": windows, "raw_std": raw_std}

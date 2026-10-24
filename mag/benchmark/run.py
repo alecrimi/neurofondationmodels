@@ -28,6 +28,7 @@ import shutil
 import pickle
 import tempfile
 import csv
+import warnings
 from pathlib import Path
 
 # ── paths ─────────────────────────────────────────────────────────────────────
@@ -169,9 +170,18 @@ def load_eeg_data(n: int | None, device: str, horizon_len: int = 64,
             ch_data   = pipeline.process(subj_id)
             if not ch_data:
                 print(" — no windows, skipping")
+                warnings.warn(
+                    f"Pominięto pacjenta {subj_id} "
+                    f"(pipeline={pipeline_name}): "
+                    "pipeline nie zwrócił żadnych okien do analizy.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
                 continue
             subjects[subj_id] = {"group": group, **ch_data}
             print(f" — {group}, {len(ch_data)} channels")
+        except FileNotFoundError as exc:
+            print(f" — WARNING: skipped patient {subj_id}: {exc}")
         except Exception as exc:
             print(f" — ERROR: {exc}")
 

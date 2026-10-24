@@ -11,6 +11,7 @@ import sys
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import warnings
 
 CHANNELS = ["Fp1", "Fp2", "P3", "P4"]
 CONTEXT_LEN = 512
@@ -49,19 +50,29 @@ class AlzheimerLoader:
 
     def load_subject(self, subject_id: str, use_derivatives: bool = True):
         import mne
+
         sid = self._normalize_id(subject_id)
-        base = self.dataset_path
-        candidates = []
+        filename = f"{sid}_task-eyesclosed_eeg.set"
+
         if use_derivatives:
-            candidates.append(
-                base / "derivatives" / sid / "eeg" / f"{sid}_task-eyesclosed_eeg.set"
+            path = (
+                self.dataset_path / "derivatives" / sid / "eeg" / filename
             )
-        candidates.append(base / sid / "eeg" / f"{sid}_task-eyesclosed_eeg.set")
-        for p in candidates:
-            if p.exists():
-                return mne.io.read_raw_eeglab(str(p), preload=True, verbose=False)
-        raise FileNotFoundError(
-            f"No EEG file found for {sid}. Tried: {[str(c) for c in candidates]}"
+            source = "derivatives"
+        else:
+            path = self.dataset_path / sid / "eeg" / filename
+            source = "raw"
+
+        if not path.is_file():
+            raise FileNotFoundError(
+                f"Patient {sid}: required {source} EEG file is missing: "
+                f"{path}; no alternative data source will be loaded."
+            )
+
+        return mne.io.read_raw_eeglab(
+            str(path),
+            preload=True,
+            verbose=False,
         )
 
 
@@ -71,6 +82,7 @@ class BasePipeline:
     def __init__(self, dataset_path: str):
         self.dataset_path = dataset_path
         self._loader = None
+        self._overlap_warned_subjects = set()
 
     @property
     def loader(self) -> AlzheimerLoader:
@@ -90,7 +102,7 @@ class BasePipeline:
         """Override in subclass. Returns {channel: {'windows': [...], 'raw_std': float}}"""
         raise NotImplementedError
 
-    def _extract_windows(self, signal) -> list:
+    def _extract_windows(self, signal, *, subject_id: str) -> list:
         import numpy as np
         win_size = CONTEXT_LEN + HORIZON_LEN
         if len(signal) < win_size:
@@ -105,6 +117,36 @@ class BasePipeline:
             # Recording too short to drop a full 3 s — fall back to the whole range.
             start_min = 0
         starts = np.linspace(start_min, max_start, NUM_WINDOWS).astype(int)
+
+        gaps = np.diff(starts)
+
+        if gaps.size:
+            min_gap = int(gaps.min())
+            window_overlap = max(0, win_size - min_gap)
+            context_overlap = max(0, CONTEXT_LEN - min_gap)
+
+            if (
+                window_overlap > 0
+                and subject_id not in self._overlap_warned_subjects
+            ):
+                extra = (
+                    ", which exceeds the horizon length"
+                    if context_overlap > HORIZON_LEN
+                    else ""
+                )
+
+                warnings.warn(
+                    f"Patient {subject_id}: maximum overlap between adjacent "
+                    f"windows is {window_overlap} samples and between context "
+                    f"windows is {context_overlap} samples{extra} "
+                    f"(signal length: {len(signal)}, offset: {start_min}, "
+                    f"window length: {win_size}, context length: {CONTEXT_LEN}, "
+                    f"horizon length: {HORIZON_LEN}); processing continues.",
+                    RuntimeWarning,
+                    stacklevel=2,
+                )
+                self._overlap_warned_subjects.add(subject_id)
+
         return [
             {
                 'context': signal[s: s + CONTEXT_LEN],
