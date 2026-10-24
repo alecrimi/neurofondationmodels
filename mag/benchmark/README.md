@@ -57,13 +57,56 @@ benchmark/run.py  ──load EEG──▶  pipelines/baseline.py  (or loreta.py)
 
 - OpenNeuro: https://openneuro.org/datasets/ds004504
 - Format: BIDS, preprocessed `.set` files (EEGLAB) in `derivatives/`
-- Window: context = 512 samples, horizon = 64 samples, 5 windows per signal
-- Preprocessing: z-score normalisation only (bandpass already applied in derivatives)
 
 Download and place at:
 ```
 mag/datasets/ds004504/
 ```
+
+### Data loading
+
+The benchmark runners require preprocessed EEG files from:
+
+    derivatives/<subject_id>/eeg/<subject_id>_task-eyesclosed_eeg.set
+
+There is no automatic fallback to raw BIDS recordings. If the required
+derivative is missing or cannot be read, the subject is skipped and
+the runner reports the reason.
+
+At the loader API level, raw recordings can only be requested explicitly
+with `use_derivatives=False`.
+
+### Normalisation
+
+For standard forecasting, baseline scalp channels and LORETA parcel
+signals are z-scored separately for each subject and channel/parcel.
+
+The mean and population standard deviation (`ddof=0`) are computed from
+the recording after excluding its first 3 seconds (1500 samples at 500 Hz).
+The same parameters are applied to the signal without changing its length
+or sample indices. Analysis windows start after the 3-second offset.
+
+For LORETA, z-score normalisation is applied to the extracted parcel
+time series, after source reconstruction.
+
+Normalisation uses one set of statistics per recording and channel/parcel,
+not separate statistics for each window. The stored `raw_std` is the same
+standard deviation used for normalisation.
+
+### Windowing and overlap warnings
+
+Each analysis window contains 512 context samples and 64 forecast samples.
+Five window starts are distributed evenly across the recording after
+the initial 3-second offset.
+
+Standard forecasting (baseline and LORETA) allows overlapping windows.
+Overlap does not cause a signal or subject to be skipped. At most one
+overlap warning is emitted per subject per pipeline instance, including
+the subject ID, maximum overlap, and signal/window dimensions.
+
+Residual causality requires non-overlapping complete windows
+(context + forecast horizon). If five such windows cannot be placed,
+the subject is skipped and the reason is recorded in `subjects.csv`.
 
 ---
 
@@ -418,3 +461,319 @@ any cross-pipeline comparison.
 If reference repos were cloned in a session that failed midway, empty `.git/`
 directories may remain. These do not affect the benchmark but will confuse git.
 Delete them manually from Windows Explorer if present.
+
+
+---
+
+## Running causality and multivariate scripts
+
+Run all commands from `mag/`, using the orchestrator environment described above.
+The prediction and causality runners use `datasets/ds004504/` by default; pass
+`--dataset PATH` to use another location. Preprocessed files in `derivatives/`
+are required. `analyze_results.py` reads saved results, not the EEG dataset.
+
+The examples use CPU. Select `--device cuda` where supported to use a configured
+CUDA environment. Omit `--run-name` for an automatically generated name, or
+choose a new name when repeating an example.
+
+### Current project structure
+
+```text
+mag/
+├── datasets/ds004504/                EEG dataset (BIDS format)
+├── ref/                             Read-only creator repositories
+│   ├── chronos-forecasting/
+│   ├── timesfm/
+│   ├── uni2ts/
+│   ├── lag-llama/
+│   ├── sundial/
+│   └── vitime/
+├── venv-cuda/                       Orchestrator environment (CUDA setup)
+├── venv-cpu312/                     Alternative orchestrator environment (CPU setup)
+└── benchmark/
+    ├── run.py                       Standard univariate benchmark
+    ├── evaluate.py                  Existing univariate result analysis
+    ├── run_residual_causality.py     Foundation-model residual-causality runner
+    ├── run_granger_causality.py      Classical Granger-causality runner
+    ├── run_multivariate.py           Multivariate preparation and Moirai inference
+    ├── multivariate.py               Shared alignment, input preparation and metrics
+    ├── analyze_results.py            Aggregate CSV results into tables and PNG figures
+    ├── requirements-cuda.txt         Orchestrator requirements
+    ├── experiments/
+    │   ├── __init__.py
+    │   ├── residual_causality.py     Residual F-tests, parsers and shared window_starts
+    │   └── granger_causality.py      Classical Granger F-tests
+    ├── pipelines/
+    │   ├── __init__.py               Shared EEG loader and base window extraction
+    │   ├── baseline.py               Scalp EEG preprocessing and windows
+    │   ├── loreta.py                 Source reconstruction, parcels and windows
+    │   └── loreta_gsp.py             Optional source-space GSP pipeline
+    ├── models/
+    │   ├── chronos/
+    │   │   ├── runner.py             Existing univariate Chronos inference
+    │   │   ├── requirements.txt
+    │   │   └── venv/                 Isolated model environment
+    │   ├── chronos2/
+    │   │   ├── runner.py             Current univariate Chronos-Bolt implementation
+    │   │   ├── runner_multivariate.py  Future native Chronos-2 adapter template
+    │   │   ├── requirements.txt
+    │   │   └── venv/
+    │   ├── timesfm/
+    │   │   ├── runner.py             Existing univariate TimesFM 2.5 inference
+    │   │   ├── runner_multivariate.py  Multivariate adapter template
+    │   │   ├── requirements.txt
+    │   │   └── venv/
+    │   ├── moirai/
+    │   │   ├── runner.py             Existing univariate Moirai inference
+    │   │   ├── runner_multivariate.py  One target with past-only covariates
+    │   │   ├── requirements.txt
+    │   │   └── venv/
+    │   ├── lag_llama/
+    │   ├── sundial/
+    │   ├── vitime/
+    │   └── timefound/
+    └── results/
+        ├── baseline/                Standard scalp forecasting results
+        ├── loreta/                  Standard source-space forecasting results
+        ├── loreta_gsp/              Optional GSP forecasting results
+        ├── comparison/              Existing evaluate.py comparison output
+        ├── cache/                   LORETA inverse-operator cache
+        ├── residual_causality/
+        │   ├── _forecast_cache/     Technical foundation-model forecast cache
+        │   └── <pipeline>/<run_name>/
+        ├── granger_causality/
+        │   └── <pipeline>/<run_name>/
+        ├── multivariate/
+        │   └── <pipeline>/<model-folder>/<run_name>/
+        └── final_analysis/
+            └── <date_and_time>/     Aggregate CSV tables and figures/*.png
+```
+
+Use the orchestrator environment installed on your machine; both orchestrator
+folders are shown as alternatives. Model environments remain in
+`benchmark/models/<model-folder>/venv/`.
+
+### Residual causality
+
+Prepare the selected model environment once:
+
+```bash
+python benchmark/run.py --models Chronos --setup-only --device cpu
+```
+
+```bash
+# Two subjects and one model
+python benchmark/run_residual_causality.py --models Chronos --limit 2 --device cpu --no-setup --scaling zscore --run-name residual_example
+
+# All subjects, one model
+python benchmark/run_residual_causality.py --models Chronos --no-setup
+
+# Explicit subjects, directed pairs and millisecond lags
+python benchmark/run_residual_causality.py --models Chronos --subjects sub-001 sub-002 --pairs "P3->Fp1,Fp1->P3" --lags "[10,20,40]" --lag-unit ms --no-setup
+
+# Force new forecasts after preprocessing changes
+python benchmark/run_residual_causality.py --models Chronos --limit 2 --refresh --no-setup
+
+# LORETA: specify parcel pairs explicitly
+python benchmark/run_residual_causality.py --models Chronos --pipeline loreta --pairs "src_precuneus_lh->src_superiorfrontal_lh" --limit 2 --no-setup
+```
+
+#### Residual runner parameters
+
+| Flag | Description |
+|------|-------------|
+| `--models NAME ...` | Required space-separated model labels, e.g. `Chronos TimesFM`. Each model runs separately. |
+| `--group GROUP` | Select `all`, `ad`, `ftd` (`fd` alias), or `control`. Default: `all`. Mutually exclusive with `--subjects`. |
+| `--subjects ID ...` | Explicit subject IDs, e.g. `sub-001 sub-002` or `1 2`. Mutually exclusive with `--group`. |
+| `--limit N` | Use the first N selected subjects. Default: all selected subjects. |
+| `--pairs "X->Y,..."` | Directed driver-to-target pairs. Default scalp pairs: `P3->Fp1,Fp1->P3,P4->Fp2,Fp2->P4`. Required explicitly for LORETA. |
+| `--lags "[5,10,...]"` | Lag orders to test. Default: `[5,10,20,30,40,50]`. |
+| `--lag-unit UNIT` | `samples` or `ms`. Default: `samples`; one sample is 2 ms at 500 Hz. |
+| `--pipeline NAME` | `baseline` or `loreta`. Default: `baseline`. |
+| `--scaling NAME` | `zscore` or `raw`. Updated default: `zscore`. LORETA requires `zscore`; `raw` changes scaling, not file selection. |
+| `--dataset PATH` | BIDS dataset root. Default: `datasets/ds004504/` relative to the project root. |
+| `--device DEVICE` | `cpu` or `cuda`. Auto-detected when omitted. |
+| `--run-name NAME` | Output subdirectory. Default: timestamp. Use a new name for each run. |
+| `--refresh` | Ignore cached forecasts and recompute them. |
+| `--no-setup` | Skip automatic model-environment setup; use the existing model venv. |
+
+Results: `benchmark/results/residual_causality/<pipeline>/<run_name>/`.
+The simplified runner writes one `<model>_residual_causality_results.csv` per
+model and `run_config.json`. Forecasts are cached separately in
+`benchmark/results/residual_causality/_forecast_cache/`.
+
+### Classical Granger causality
+
+No foundation-model environment or GPU is needed. LORETA still requires the
+orchestrator's MNE/source-space dependencies.
+
+```bash
+# Two subjects
+python benchmark/run_granger_causality.py --limit 2 --run-name granger_example
+
+# All subjects
+python benchmark/run_granger_causality.py
+
+# Explicit subjects, pairs and lag orders
+python benchmark/run_granger_causality.py --subjects sub-001 sub-002 --pairs "P3->Fp1,Fp1->P3" --lags "[5,10,20]"
+
+# Group selection and millisecond units
+python benchmark/run_granger_causality.py --group ad --limit 2 --lags "[10,20,40]" --lag-unit ms
+
+# LORETA
+python benchmark/run_granger_causality.py --pipeline loreta --pairs "src_precuneus_lh->src_superiorfrontal_lh" --limit 2
+```
+
+#### Granger runner parameters
+
+| Flag | Description |
+|------|-------------|
+| `--group GROUP` | Select `all`, `ad`, `ftd` (`fd` alias), or `control`. Default: `all`. Mutually exclusive with `--subjects`. |
+| `--subjects ID ...` | Explicit subject IDs, e.g. `sub-001 sub-002`. Mutually exclusive with `--group`. |
+| `--limit N` | Use the first N selected subjects. Default: all selected subjects. |
+| `--pairs "X->Y,..."` | Directed pairs. Default: the four scalp pairs listed above. Required explicitly for LORETA. |
+| `--lags "[5,10,...]"` | Lag orders to test. Default: `[5,10,20,30,40,50]`. |
+| `--lag-unit UNIT` | `samples` or `ms`. Default: `samples`. |
+| `--pipeline NAME` | `baseline` or `loreta`. Default: `baseline`. |
+| `--scaling NAME` | `zscore` default; `raw` is available for baseline only. |
+| `--dataset PATH` | BIDS dataset root. Default: `datasets/ds004504/`. |
+| `--run-name NAME` | New output subdirectory. Default: timestamp. |
+
+This runner does not accept `--models`, `--device`, `--refresh`, or `--no-setup`.
+
+Results: `benchmark/results/granger_causality/<pipeline>/<run_name>/`:
+`granger_causality_results.csv` and `run_config.json`.
+
+### Multivariate prediction — Moirai
+
+Moirai is implemented: it forecasts one target using the past of that target
+and one or more covariate channels. No future covariate values are supplied.
+It uses `Salesforce/moirai-1.0-R-base` through the isolated Moirai environment.
+
+Prepare that environment once:
+
+```bash
+python benchmark/run.py --models Moirai --setup-only --device cpu
+```
+
+```bash
+# Prepare aligned inputs for two subjects, without model inference
+python benchmark/run_multivariate.py --model Moirai --target Fp1 --covariates P3 --n 2 --prepare-only --run-name moirai_preparation
+
+# Forecast Fp1 using its past and P3 history
+python benchmark/run_multivariate.py --model Moirai --target Fp1 --covariates P3 --n 2 --device cpu --run-name moirai_example
+
+# Forecast Fp1 using its past and two covariate histories
+python benchmark/run_multivariate.py --model Moirai --target Fp1 --covariates P3 P4 --n 2 --device cpu
+
+# All subjects
+python benchmark/run_multivariate.py --model Moirai --target Fp1 --covariates P3 --device cpu
+
+# Source-space target and historical covariate
+python benchmark/run_multivariate.py --model Moirai --pipeline loreta --target src_precuneus_lh --covariates src_superiorfrontal_lh --n 2 --device cpu
+```
+
+Moirai input scaling uses each window's context statistics. Metrics are written
+per subject/window/target; two successful subjects with five windows give 10 rows.
+
+Results: `benchmark/results/multivariate/<pipeline>/moirai/<run_name>/`.
+Preparation writes `prepared_multivariate.pkl` and `run_config.json`.
+Successful inference writes `output.pkl`,
+`multivariate_predictions_metrics.csv`, and `run_config.json`.
+
+### Multivariate preparation — TimesFM and Chronos-2 templates
+
+The TimesFM and Chronos-2 multivariate adapters remain templates. Use
+`--prepare-only` to prepare inputs; omitting it requires their model-specific
+inference functions to be implemented first. This preparation needs no model venv.
+
+```bash
+# Two subjects, default scalp channels Fp1/Fp2/P3/P4
+python benchmark/run_multivariate.py --model TimesFM --n 2 --prepare-only --run-name multivariate_timesfm_example
+
+# Future native Chronos-2 adapter; current univariate Bolt runner is unchanged
+python benchmark/run_multivariate.py --model Chronos-2 --n 2 --prepare-only --run-name multivariate_chronos2_example
+
+# Explicit channel subset
+python benchmark/run_multivariate.py --model TimesFM --channels Fp1 P3 --n 2 --prepare-only
+
+# LORETA: specify parcel names
+python benchmark/run_multivariate.py --model TimesFM --pipeline loreta --channels src_precuneus_lh src_superiorfrontal_lh --n 2 --prepare-only
+```
+
+Preparation writes `prepared_multivariate.pkl` and `run_config.json` to
+`benchmark/results/multivariate/<pipeline>/<model-folder>/<run_name>/`.
+It does not generate predictions.
+
+#### Multivariate runner parameters
+
+| Flag | Description |
+|------|-------------|
+| `--model NAME` | One model: `TimesFM`, `Chronos-2`, or `Moirai`. Default: `TimesFM`. Only Moirai inference is currently implemented. |
+| `--pipeline NAME` | `baseline` or `loreta`. Default: `baseline`. |
+| `--channels CH ...` | Ordered input channels for the template workflow; select at least two. Baseline defaults to `Fp1 Fp2 P3 P4`; LORETA requires explicit parcel names. For Moirai use `--target` and `--covariates`. |
+| `--target CH` | Target channel to forecast. Required for Moirai, e.g. `Fp1` or `src_precuneus_lh`. |
+| `--covariates CH ...` | One or more historical covariate channels. Required for Moirai; all must differ from the target and each other. |
+| `--n N` | Use the first N subjects. Default: all subjects. |
+| `--dataset PATH` | BIDS dataset root. Default: `datasets/ds004504/`. |
+| `--device DEVICE` | `cpu` or `cuda`. Default: `cpu`. Relevant to actual model inference. |
+| `--run-name NAME` | New output subdirectory. Default: timestamp. |
+| `--prepare-only` | Prepare and validate aligned inputs without calling a forecasting model. |
+
+Use `--model` (singular) and `--n`, not `--models` or `--limit`. Baseline channels
+must be emitted by the existing pipeline: currently Fp1, Fp2, P3, P4. The runner
+uses existing model venvs; it does not install model packages automatically.
+
+### Aggregate analysis and figures
+
+After completing prediction and causality runs, generate aggregate CSV tables
+and PNG figures with one command:
+
+```bash
+python benchmark/analyze_results.py
+```
+
+Examples with optional settings:
+
+```bash
+# Read another results directory
+python benchmark/analyze_results.py --results benchmark/results
+
+# Choose a new output directory
+python benchmark/analyze_results.py --output benchmark/results/analysis_example
+
+# Use original-scale MSE instead of normalised MSE
+python benchmark/analyze_results.py --metric mse_original
+
+# Generate aggregate tables without rendering figures
+python benchmark/analyze_results.py --tables-only
+```
+
+#### Analysis script parameters
+
+| Flag | Description |
+|------|-------------|
+| `--results PATH` | Input result directory. Default: `benchmark/results/`, located relative to the script. |
+| `--output PATH` | New or empty output directory. Default: `benchmark/results/final_analysis/<date_and_time>/`. |
+| `--metric NAME` | Forecast metric: `mse_norm` (default) or `mse_original`. Standard `mse_phys` is mapped to `mse_original` when loading CSVs. |
+| `--alpha VALUE` | Threshold used to summarise nominal causality p-values. Default: `0.05`; must be between 0 and 1. |
+| `--tables-only` | Save aggregate tables without generating figures. |
+
+The script reads saved CSVs, selects the latest readable run per recognised
+configuration, and generates final aggregate charts rather than individual
+forecast traces. It includes univariate and available multivariate results,
+with baseline and LORETA variants. No models are run.
+
+Outputs include aggregate forecast/causality CSV tables, `source_manifest.csv`,
+`figure_manifest.csv`, and `figures/*.png`. No PDFs or Markdown reports are
+created. A figure is skipped if it has no real data; missing model slots in
+otherwise nonempty bar charts are shown as zero-height `N/A` placeholders.
+
+### Command help
+
+```bash
+python benchmark/run_residual_causality.py --help
+python benchmark/run_granger_causality.py --help
+python benchmark/run_multivariate.py --help
+python benchmark/analyze_results.py --help
+```
